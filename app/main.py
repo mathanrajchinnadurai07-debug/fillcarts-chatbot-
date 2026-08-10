@@ -78,62 +78,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error("Failed to create DB tables: %s", exc)
 
-    try:
-        from app.embeddings import get_chroma_service
-        from app.classifier import get_classifier
-        from app.llm_client import get_llm_client
-        from app.knowledge import get_knowledge_service
-
-        # Warm up ChromaDB
-        try:
-            chroma = get_chroma_service()
-            doc_count = chroma.count()
-            logger.info("ChromaDB warm-up OK — %d documents indexed.", doc_count)
-            if doc_count == 0:
-                logger.warning(
-                    "ChromaDB is empty. Run 'python models/train.py' to index data."
-                )
-        except Exception as exc:
-            logger.error("ChromaDB warm-up failed: %s", exc)
-
-        # Warm up classifier
-        try:
-            clf = get_classifier()
-            if clf.is_trained:
-                logger.info(
-                    "Classifier loaded. Known intents: %s", clf.classes
-                )
-            else:
-                logger.warning(
-                    "Classifier not trained. Run 'python models/train.py' first."
-                )
-        except Exception as exc:
-            logger.error("Classifier warm-up failed: %s", exc)
-
-        # Warm up LLM / show mode
-        try:
-            llm = get_llm_client()
-            logger.info("LLM mode: %s", llm.mode)
-        except Exception as exc:
-            logger.error("LLM warm-up failed: %s", exc)
-
-        # Sync knowledge base entries to ChromaDB
-        try:
-            from app.database import AsyncSessionLocal
-            from app.knowledge import KnowledgeEntry
-            from sqlalchemy import text as sql_text
-            async with AsyncSessionLocal() as session:
-                # Create knowledge_entries table if needed
-                ks = get_knowledge_service()
-                synced = await ks.sync_all_to_chroma(session)
-                logger.info("Knowledge base: %d entries synced to ChromaDB.", synced)
-        except Exception as exc:
-            logger.warning("Knowledge base sync skipped: %s", exc)
-
-    except MemoryError:
-        logger.error("Insufficient memory for ML model loading. Running in API-only mode.")
-    except Exception as exc:
-        logger.error("Startup error: %s", exc)
+    # NOTE: ML models (sentence-transformers, sklearn, chromadb) are loaded
+    # lazily on first request to avoid OOM on memory-constrained hosts like
+    # Render free tier (512MB).  Do NOT warm them up here.
+    logger.info(
+        "ML models will be loaded on first request (lazy mode). "
+        "This keeps startup memory under 512MB."
+    )
 
     logger.info("%s is ready to serve requests.", settings.app_name)
     yield
