@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curify AI Advisor — Admin Knowledge Input</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-icon">⚙️</span>
+      <span class="brand-title">Curify Admin Panel</span>
+      <span class="badge">Offline Knowledge Base</span>
+    </div>
+    <nav class="nav-links">
+      <a href="/">Customer Chat</a>
+      <a href="/admin" class="active">Admin Knowledge Input</a>
+    </nav>
+  </header>
+
+  <main class="admin-container">
+    <div class="grid-layout">
+      <!-- Add Knowledge Form -->
+      <div class="card">
+        <h2 class="card-title">Add Custom FAQ / Details</h2>
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">
+          Input your business details & FAQs below. The chatbot will instantly search and answer customer queries using these details — no AI API key needed!
+        </p>
+
+        <form id="kb-form">
+          <div class="form-group">
+            <label for="kb-question">Customer Question / Topic</label>
+            <input type="text" id="kb-question" class="form-input" placeholder="e.g. What is your refund policy?" required />
+          </div>
+
+          <div class="form-group">
+            <label for="kb-answer">Chatbot Answer / Details</label>
+            <textarea id="kb-answer" class="form-textarea" placeholder="e.g. We provide 100% full refund within 30 days of purchase..." required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="kb-intent">Intent Category</label>
+            <select id="kb-intent" class="form-select">
+              <option value="product_inquiry">Product Inquiry</option>
+              <option value="pricing">Pricing & Cost</option>
+              <option value="order_status">Order Status</option>
+              <option value="refund_request">Refund Request</option>
+              <option value="complaint">Complaint / Issue</option>
+              <option value="account_support">Account Support</option>
+              <option value="general_greeting">Greeting</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn-primary">Save to Chatbot Memory</button>
+        </form>
+      </div>
+
+      <!-- Knowledge List Table -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h2 class="card-title" style="margin:0;">Stored Knowledge Base (<span id="kb-count">0</span>)</h2>
+          <button id="sync-btn" class="btn-sm" style="background:var(--bg-card); color:var(--accent-color); border:1px solid var(--border-color);">🔄 Re-sync ChromaDB</button>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Question / Topic</th>
+                <th>Answer</th>
+                <th>Category</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="kb-table-body">
+              <tr>
+                <td colspan="4" style="text-align:center; color:var(--text-secondary);">Loading stored entries...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/static/admin.js"></script>
+</body>
+</html>

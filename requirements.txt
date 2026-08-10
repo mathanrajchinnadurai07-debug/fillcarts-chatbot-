@@ -1,0 +1,40 @@
+# ── Core API ──────────────────────────────────────────────────────────────────
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+
+# ── Settings & Validation ──────────────────────────────────────────────────────
+pydantic==2.7.1
+pydantic-settings==2.3.1
+python-dotenv==1.0.1
+
+# ── ML / NLP ───────────────────────────────────────────────────────────────────
+scikit-learn==1.5.0
+sentence-transformers==3.0.1
+torch==2.3.1          # required by sentence-transformers (CPU build)
+numpy==1.26.4
+pandas==2.2.2
+joblib==1.4.2
+
+# ── Vector Store ───────────────────────────────────────────────────────────────
+chromadb==0.5.3
+
+# ── LLM ───────────────────────────────────────────────────────────────────────
+google-generativeai==0.7.2
+tenacity==8.3.0       # retry / exponential back-off
+
+# ── Database ───────────────────────────────────────────────────────────────────
+sqlalchemy==2.0.31
+aiosqlite==0.20.0     # async SQLite driver for SQLAlchemy
+
+# ── Utilities ──────────────────────────────────────────────────────────────────
+httpx==0.27.0         # async HTTP (Gemini SDK dependency)
+cachetools==5.3.3     # LRU cache for LLM responses
+
+# ── Testing ────────────────────────────────────────────────────────────────────
+pytest==8.2.2
+pytest-asyncio==0.23.7
+httpx==0.27.0         # async test client (AsyncClient)
+
+# ── Dev / Lint ─────────────────────────────────────────────────────────────────
+ruff==0.4.7

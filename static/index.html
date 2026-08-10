@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Curify AI Advisor — Customer Chat</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-icon">💬</span>
+      <span class="brand-title">Curify AI Advisor</span>
+      <span class="badge badge-offline" id="mode-badge">100% Offline Mode</span>
+    </div>
+    <nav class="nav-links">
+      <a href="/" class="active">Customer Chat</a>
+      <a href="/admin">Admin Knowledge Input</a>
+    </nav>
+  </header>
+
+  <main class="main-container">
+    <div class="chat-window">
+      <div class="chat-messages" id="chat-messages">
+        <div class="message bot">
+          <div class="message-bubble">
+            Hello! 👋 Welcome to <strong>Curify Customer Support</strong>.
+            I can answer your questions about our products, pricing, orders, and services — completely offline without needing an external API key!
+
+            How can I help you today?
+          </div>
+          <div class="message-meta">System Ready</div>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <input type="text" id="user-input" class="chat-input" placeholder="Ask a question (e.g. 'What are your products?', 'Price details', or in Tanglish)..." autofocus />
+        <button id="send-btn" class="btn-send">Send</button>
+      </div>
+    </div>
+  </main>
+
+  <script src="/static/chat.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+# Environment variables
+.env
+.env.local
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+env/
+
+# Python bytecode & cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Databases & Vector Stores
+chroma_db/
+curify_chat.db
+*.sqlite
+*.db
+
+# Model artifacts
+models/saved/*.joblib
+
+# Logs & temp files
+logs/
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db

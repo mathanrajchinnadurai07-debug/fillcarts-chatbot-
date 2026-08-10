@@ -1,0 +1,120 @@
+version: "3.9"
+
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  Curify AI Advisor — Docker Compose                          ║
+# ║  Services: app                                               ║
+# ║  Volumes: chroma_db (persistent), sqlite_db, logs            ║
+# ╚══════════════════════════════════════════════════════════════╝
+
+services:
+
+  # ── Main Application ───────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: curify-ai-advisor:latest
+    container_name: curify_chatbot
+    restart: unless-stopped
+
+    # ── Port mapping ──────────────────────────────────────────────────────────
+    ports:
+      - "${PORT:-8000}:8000"
+
+    # ── Environment ───────────────────────────────────────────────────────────
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - CHROMA_PERSIST_DIR=/app/chroma_db
+      - DATABASE_URL=sqlite+aiosqlite:////app/sqlite_data/curify_chat.db
+
+    # ── Volume mounts ─────────────────────────────────────────────────────────
+    volumes:
+      # ChromaDB persistent storage — survives container restarts
+      - chroma_data:/app/chroma_db
+      # SQLite database
+      - sqlite_data:/app/sqlite_data
+      # Application logs
+      - app_logs:/app/logs
+      # Models (trained artefacts persist between redeploys)
+      - model_data:/app/models/saved
+      # Training data (so new CSVs can be dropped in without rebuilding)
+      - training_data:/app/data
+
+    # ── Health check ──────────────────────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # ── Logging ───────────────────────────────────────────────────────────────
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+    # ── Resource limits ───────────────────────────────────────────────────────
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "2.0"
+        reservations:
+          memory: 512m
+          cpus: "0.5"
+
+  # ── One-off Training Service ───────────────────────────────────────────────
+  # Run with: docker compose run --rm trainer
+  trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: curify-ai-advisor:latest
+    container_name: curify_trainer
+    profiles:
+      - training  # only starts when explicitly requested
+    env_file:
+      - .env
+    environment:
+      - CHROMA_PERSIST_DIR=/app/chroma_db
+      - DATABASE_URL=sqlite+aiosqlite:////app/sqlite_data/curify_chat.db
+    volumes:
+      - chroma_data:/app/chroma_db
+      - sqlite_data:/app/sqlite_data
+      - model_data:/app/models/saved
+      - training_data:/app/data
+    command: >
+      python models/train.py
+      --csv ./data/raw/sample_training_data.csv
+      --reset-chroma
+
+# ─── Named Volumes ─────────────────────────────────────────────────────────────
+volumes:
+  chroma_data:
+    driver: local
+    name: curify_chroma_data
+  sqlite_data:
+    driver: local
+    name: curify_sqlite_data
+  app_logs:
+    driver: local
+    name: curify_app_logs
+  model_data:
+    driver: local
+    name: curify_model_data
+  training_data:
+    driver: local
+    name: curify_training_data
+
+# ─── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  default:
+    name: curify_network
+    driver: bridge
