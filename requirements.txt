@@ -11,7 +11,7 @@ python-dotenv==1.0.1
 # ── ML / NLP ───────────────────────────────────────────────────────────────────
 scikit-learn==1.5.0
 sentence-transformers==3.0.1
-torch==2.3.1          # required by sentence-transformers (CPU build)
+torch>=2.3.1,<3.0.0   # required by sentence-transformers (CPU build)
 numpy==1.26.4
 pandas==2.2.2
 joblib==1.4.2
