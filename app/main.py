@@ -42,16 +42,8 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.chatbot import get_chatbot_pipeline
-from app.knowledge import (
-    KnowledgeEntry, KnowledgeService, get_knowledge_service,
-    get_knowledge_service as _ks
-)
 from app.config import settings
 from app.database import Conversation, Message, User, create_db_tables, get_db
-from app.embeddings import get_chroma_service, ingest_csv_to_chroma
-from app.classifier import get_classifier
-from app.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -86,51 +78,62 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error("Failed to create DB tables: %s", exc)
 
-    # Warm up ChromaDB
     try:
-        chroma = get_chroma_service()
-        doc_count = chroma.count()
-        logger.info("ChromaDB warm-up OK — %d documents indexed.", doc_count)
-        if doc_count == 0:
-            logger.warning(
-                "ChromaDB is empty. Run 'python models/train.py' to index data."
-            )
-    except Exception as exc:
-        logger.error("ChromaDB warm-up failed: %s", exc)
+        from app.embeddings import get_chroma_service
+        from app.classifier import get_classifier
+        from app.llm_client import get_llm_client
+        from app.knowledge import get_knowledge_service
 
-    # Warm up classifier
-    try:
-        clf = get_classifier()
-        if clf.is_trained:
-            logger.info(
-                "Classifier loaded. Known intents: %s", clf.classes
-            )
-        else:
-            logger.warning(
-                "Classifier not trained. Run 'python models/train.py' first."
-            )
-    except Exception as exc:
-        logger.error("Classifier warm-up failed: %s", exc)
+        # Warm up ChromaDB
+        try:
+            chroma = get_chroma_service()
+            doc_count = chroma.count()
+            logger.info("ChromaDB warm-up OK — %d documents indexed.", doc_count)
+            if doc_count == 0:
+                logger.warning(
+                    "ChromaDB is empty. Run 'python models/train.py' to index data."
+                )
+        except Exception as exc:
+            logger.error("ChromaDB warm-up failed: %s", exc)
 
-    # Warm up LLM / show mode
-    try:
-        llm = get_llm_client()
-        logger.info("LLM mode: %s", llm.mode)
-    except Exception as exc:
-        logger.error("LLM warm-up failed: %s", exc)
+        # Warm up classifier
+        try:
+            clf = get_classifier()
+            if clf.is_trained:
+                logger.info(
+                    "Classifier loaded. Known intents: %s", clf.classes
+                )
+            else:
+                logger.warning(
+                    "Classifier not trained. Run 'python models/train.py' first."
+                )
+        except Exception as exc:
+            logger.error("Classifier warm-up failed: %s", exc)
 
-    # Sync knowledge base entries to ChromaDB
-    try:
-        from app.database import AsyncSessionLocal
-        from app.knowledge import KnowledgeEntry
-        from sqlalchemy import text as sql_text
-        async with AsyncSessionLocal() as session:
-            # Create knowledge_entries table if needed
-            ks = get_knowledge_service()
-            synced = await ks.sync_all_to_chroma(session)
-            logger.info("Knowledge base: %d entries synced to ChromaDB.", synced)
+        # Warm up LLM / show mode
+        try:
+            llm = get_llm_client()
+            logger.info("LLM mode: %s", llm.mode)
+        except Exception as exc:
+            logger.error("LLM warm-up failed: %s", exc)
+
+        # Sync knowledge base entries to ChromaDB
+        try:
+            from app.database import AsyncSessionLocal
+            from app.knowledge import KnowledgeEntry
+            from sqlalchemy import text as sql_text
+            async with AsyncSessionLocal() as session:
+                # Create knowledge_entries table if needed
+                ks = get_knowledge_service()
+                synced = await ks.sync_all_to_chroma(session)
+                logger.info("Knowledge base: %d entries synced to ChromaDB.", synced)
+        except Exception as exc:
+            logger.warning("Knowledge base sync skipped: %s", exc)
+
+    except MemoryError:
+        logger.error("Insufficient memory for ML model loading. Running in API-only mode.")
     except Exception as exc:
-        logger.warning("Knowledge base sync skipped: %s", exc)
+        logger.error("Startup error: %s", exc)
 
     logger.info("%s is ready to serve requests.", settings.app_name)
     yield
@@ -375,6 +378,8 @@ async def health_check() -> dict:
     Returns system status, classifier state, and ChromaDB document count.
     """
     try:
+        from app.classifier import get_classifier
+        from app.embeddings import get_chroma_service
         clf = get_classifier()
         chroma = get_chroma_service()
         return {
@@ -411,6 +416,7 @@ async def chat(
 
     Supports Tamil-English (Tanglish) mixed messages.
     """
+    from app.chatbot import get_chatbot_pipeline
     pipeline = get_chatbot_pipeline()
     try:
         chat_response = await pipeline.process(
@@ -606,6 +612,7 @@ async def get_mode() -> dict:
     Returns 'offline' if no Gemini API key is configured,
     or 'gemini' if using the Gemini 2.5 Flash API.
     """
+    from app.llm_client import get_llm_client
     llm = get_llm_client()
     return {
         "mode": llm.mode,
@@ -669,6 +676,7 @@ async def list_knowledge(
     Supports filtering by category and intent. Used by the admin panel
     to display all custom FAQs and product details.
     """
+    from app.knowledge import get_knowledge_service
     ks = get_knowledge_service()
     entries = await ks.list_entries(
         db, category=category, intent=intent,
@@ -693,6 +701,7 @@ async def create_knowledge(
     The entry is immediately indexed in ChromaDB so the chatbot
     can use it for responses — no retraining required.
     """
+    from app.knowledge import get_knowledge_service
     ks = get_knowledge_service()
     try:
         entry = await ks.add_entry(
@@ -721,6 +730,7 @@ async def update_knowledge(
 
     Changes are reflected immediately in ChromaDB.
     """
+    from app.knowledge import get_knowledge_service
     ks = get_knowledge_service()
     entry = await ks.update_entry(
         db=db,
@@ -744,6 +754,7 @@ async def delete_knowledge(
     """
     Delete a knowledge entry from both SQLite and ChromaDB.
     """
+    from app.knowledge import get_knowledge_service
     ks = get_knowledge_service()
     deleted = await ks.delete_entry(db, entry_id)
     if not deleted:
@@ -760,6 +771,7 @@ async def sync_knowledge(
 
     Use this if ChromaDB was reset or if you suspect index is out of sync.
     """
+    from app.knowledge import get_knowledge_service
     ks = get_knowledge_service()
     count = await ks.sync_all_to_chroma(db)
     return {"success": True, "synced": count}

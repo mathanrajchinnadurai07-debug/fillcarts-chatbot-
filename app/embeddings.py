@@ -14,13 +14,10 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import chromadb
-import pandas as pd
-from chromadb import Collection
-from chromadb.config import Settings as ChromaSettings
-from sentence_transformers import SentenceTransformer
+if TYPE_CHECKING:
+    from chromadb import Collection
 
 from app.config import settings
 
@@ -46,6 +43,8 @@ class EmbeddingService:
         """
         logger.info("Loading embedding model: %s", model_name)
         try:
+            from sentence_transformers import SentenceTransformer
+
             self.model = SentenceTransformer(model_name)
             self.model_name = model_name
             logger.info("Embedding model loaded successfully.")
@@ -121,11 +120,14 @@ class ChromaService:
         logger.info("Initialising ChromaDB at: %s", persist_dir)
 
         try:
+            import chromadb
+            from chromadb.config import Settings as ChromaSettings
+
             self.client = chromadb.PersistentClient(
                 path=persist_dir,
                 settings=ChromaSettings(anonymized_telemetry=False),
             )
-            self.collection: Collection = self.client.get_or_create_collection(
+            self.collection: "Collection" = self.client.get_or_create_collection(
                 name=collection_name,
                 metadata={"hnsw:space": "cosine"},
             )
@@ -291,6 +293,8 @@ def ingest_csv_to_chroma(
     logger.info("Ingesting data from %s into ChromaDB...", csv_path)
 
     try:
+        import pandas as pd
+
         df = pd.read_csv(csv_path)
     except Exception as exc:
         raise RuntimeError(f"Failed to read CSV file: {exc}") from exc

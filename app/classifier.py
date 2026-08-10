@@ -22,16 +22,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import joblib
-import numpy as np
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder
-
 from app.config import settings
-from app.embeddings import get_chroma_service
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +101,17 @@ class IntentClassifier:
 
     # ── Training ──────────────────────────────────────────────────────────────
 
-    def build_pipeline(self) -> Pipeline:
+    def build_pipeline(self):
         """
         Construct the sklearn Pipeline (TF-IDF → Logistic Regression).
 
         Returns:
             A fresh sklearn Pipeline ready for fitting.
         """
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from sklearn.linear_model import LogisticRegression
+        from sklearn.pipeline import Pipeline
+
         vectoriser = TfidfVectorizer(
             analyzer="char_wb",       # character n-grams — great for Tanglish
             ngram_range=(2, 4),
@@ -137,7 +132,7 @@ class IntentClassifier:
         )
         return Pipeline([("tfidf", vectoriser), ("clf", clf)])
 
-    def train(self, df: pd.DataFrame) -> dict[str, float]:
+    def train(self, df) -> dict[str, float]:
         """
         Fit the pipeline on labelled data.
 
@@ -150,6 +145,9 @@ class IntentClassifier:
         Raises:
             ValueError: If required columns are missing or df is empty.
         """
+        import pandas as pd  # noqa: F811 – lazy import
+        from sklearn.preprocessing import LabelEncoder
+
         if df.empty:
             raise ValueError("Training DataFrame is empty.")
         for col in ("text", "intent"):
@@ -188,6 +186,8 @@ class IntentClassifier:
         if not self._is_trained:
             raise RuntimeError("Classifier must be trained before saving.")
 
+        import joblib
+
         model_dir.mkdir(parents=True, exist_ok=True)
         joblib.dump(self.pipeline, model_dir / "intent_pipeline.joblib")
         joblib.dump(self.label_encoder, model_dir / "label_encoder.joblib")
@@ -213,6 +213,12 @@ class IntentClassifier:
             raise FileNotFoundError(f"Label encoder not found: {encoder_path}")
 
         try:
+            import joblib
+            import sklearn.feature_extraction.text  # noqa: F401 – needed for unpickling
+            import sklearn.linear_model  # noqa: F401 – needed for unpickling
+            import sklearn.pipeline  # noqa: F401 – needed for unpickling
+            import sklearn.preprocessing  # noqa: F401 – needed for unpickling
+
             self.pipeline = joblib.load(pipeline_path)
             self.label_encoder = joblib.load(encoder_path)
             self._is_trained = True
@@ -263,6 +269,8 @@ class IntentClassifier:
             )
 
         try:
+            import numpy as np
+
             proba = self.pipeline.predict_proba([cleaned])[0]
             best_idx = int(np.argmax(proba))
             confidence = float(proba[best_idx])
@@ -307,6 +315,8 @@ class IntentClassifier:
             IntentResult using embedding-retrieved intent.
         """
         try:
+            from app.embeddings import get_chroma_service
+
             chroma = get_chroma_service()
             hits = chroma.query(text, top_k=1)
 
